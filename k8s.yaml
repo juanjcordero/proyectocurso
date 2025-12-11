@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cu-ms-payments
+  namespace: juanjcordero-dev
+  labels:
+    app: cu-ms-payments
+    areanegocio: pagos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cu-ms-payments
+  template:
+    metadata:
+      labels:
+        app: cu-ms-payments
+    spec:
+      containers:
+        - name: hola-mundo
+          image: juanjcordero/cu-ms-payments:{{ imageTag }}
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "300m"
+              memory: "512Mi"
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: 3000
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: 3000
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            initialDelaySeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 3000
+            failureThreshold: 3
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            initialDelaySeconds: 5
+          envFrom:
+            - configMapRef:
+                name: cu-ms-payments
+            - secretRef:
+                name: cu-ms-payments
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cu-ms-payments
+  namespace: juanjcordero-dev
+spec:
+  selector:
+    app: cu-ms-payments
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cu-ms-payments
+  namespace: juanjcordero-dev
+data:
+  LOG_LEVEL: "debug"
+  DATABASE_HOST: "mi-postgres-postgresql-primary.juanjcordero-dev.svc.cluster.local"
+  DATABASE_PORT: "5432"
+  DATABASE_NAME: "postgres"
+  DATABASE_USER: "postgres"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cu-ms-payments
+  namespace: juanjcordero-dev
+type: Opaque
+data:
+  DATABASE_PASSWORD: TWlQYXNzd29yZFNlZ3VybzEyMw==  # Base64 de MiPasswordSeguro123
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: cu-ms-payments
+  namespace: juanjcordero-dev
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: cu-ms-payments
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 90
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 90
