@@ -1,0 +1,46 @@
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: BUILD
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Docker Login
+        uses: docker/login-action@v3.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Construye Imagen
+        run: |
+          echo "Building Docker image..."
+          docker build -t juanjcordero/cu-ms-payments:${{ github.run_number }} .
+      - name: Pushea Imagen
+        run: |
+          echo "Pushing Docker image..."
+          docker push juanjcordero/cu-ms-payments:${{ github.run_number }}
+
+  deploy:
+    name: DEPLOY
+    runs-on: ubuntu-22.04
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenShift CLI
+        uses: redhat-actions/oc-installer@v1
+        with:
+          oc_version: "4.5"
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: "v3.14.0"
+
+      - name: Login to OpenShift
+        run: |
+          oc login --token=${{ secrets.OPENSHIFT_TOKEN }} --server=${{ secrets.OPENSHIFT_SERVER }}
