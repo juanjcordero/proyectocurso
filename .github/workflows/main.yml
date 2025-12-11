@@ -36,11 +36,11 @@ jobs:
         with:
           oc_version: "4.5"
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: "v3.14.0"
-
       - name: Login to OpenShift
         run: |
           oc login --token=${{ secrets.OPENSHIFT_TOKEN }} --server=${{ secrets.OPENSHIFT_SERVER }}
+
+      - name: Deploy to OpenShift
+        run: |
+          sed 's/{{ imageTag }}/${{ github.run_number }}/g' k8s.yaml > k8s.resolved.yaml
+          oc apply -f k8s.resolved.yaml
